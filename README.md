@@ -135,29 +135,23 @@ Scala with AWS S3 SDK:
 
 Scala with Alpakka 0.17:
 ```scala
-    import akka.actor.ActorSystem
-    import akka.stream.ActorMaterializer
-    import akka.stream.alpakka.s3.scaladsl.S3Client
-    import akka.stream.scaladsl.Sink
-    import com.typesafe.config.ConfigFactory
-    import scala.collection.JavaConverters._
-
     val config = ConfigFactory.parseMap(Map(
-      "akka.stream.alpakka.s3.proxy.host" -> "localhost",
-      "akka.stream.alpakka.s3.proxy.port" -> 8001,
-      "akka.stream.alpakka.s3.proxy.secure" -> false,
-      "akka.stream.alpakka.s3.path-style-access" -> true,
-      "akka.stream.alpakka.s3.aws.credentials.provider" -> "static",
-      "akka.stream.alpakka.s3.aws.credentials.access-key-id" -> "foo",
-      "akka.stream.alpakka.s3.aws.credentials.secret-access-key" -> "bar",
-      "akka.stream.alpakka.s3.aws.region.provider" -> "static",
-      "akka.stream.alpakka.s3.aws.region.default-region" -> "us-east-1"      
+      "alpakka.s3.proxy.host" -> "localhost",
+      "alpakka.s3.proxy.port" -> 8001,
+      "alpakka.s3.proxy.secure" -> false,
+      "alpakka.s3.path-style-access" -> true,
+      "alpakka.s3.aws.credentials.provider" -> "static",
+      "alpakka.s3.aws.credentials.access-key-id" -> "foo",
+      "alpakka.s3.aws.credentials.secret-access-key" -> "bar",
+      "alpakka.s3.aws.region.provider" -> "static",
+      "alpakka.s3.aws.region.default-region" -> "us-east-1"      
     ).asJava)
-    implicit val system = ActorSystem.create("test", config)
-    implicit val mat = ActorMaterializer()
+    implicit val system = ActorSystem("test", config)
     import system.dispatcher
-    val s3a = S3Client()
-    val contents = s3a.download("bucket", "key")._1.runWith(Sink.reduce[ByteString](_ ++ _)).map(_.utf8String)
+    val contents = S3.download("bucket", "key")
+      .withAttributes(S3Attributes(S3Ext(system).settings))
+      .flatMapConcat(_.map(_._1).getOrElse(Source.empty))
+      .runWith(Sink.reduce[ByteString](_ ++ _)).map(_.utf8String)
       
 ```
     

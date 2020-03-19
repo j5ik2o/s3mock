@@ -10,6 +10,5 @@ import io.findify.s3mock.S3MockTest
   */
 trait AWSCliTest extends S3MockTest {
   implicit val system = ActorSystem.create("awscli")
-  implicit val mat = ActorMaterializer()
   val http = Http(system)
 }

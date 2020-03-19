@@ -17,21 +17,21 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by shutty on 8/20/16.
   */
-case class PutObject(implicit provider:Provider, mat:Materializer) extends LazyLogging {
-  def route(bucket:String, path:String) = put {
-    extractRequest { request =>
-      headerValueByName("authorization") { auth =>
-        completeSigned(bucket, path)
-      } ~ completePlain(bucket, path)
+case class PutObject()(implicit provider: Provider, mat: Materializer)
+    extends LazyLogging {
+  def route(bucket: String, path: String) =
+    put {
+      extractRequest { request =>
+        headerValueByName("authorization") { auth =>
+          completeSigned(bucket, path)
+        } ~ completePlain(bucket, path)
+      }
+    } ~ post {
+      completePlain(bucket, path)
     }
-  } ~ post {
-    completePlain(bucket, path)
-  }
 
-
-  def completeSigned(bucket:String, path:String) = extractRequest { request =>
+  def completeSigned(bucket: String, path: String) = extractRequest { request =>
     complete {
-
 
       logger.info(s"put object $bucket/$path (signed)")
       val result = request.entity.dataBytes
@@ -43,22 +43,20 @@ case class PutObject(implicit provider:Provider, mat:Materializer) extends LazyL
           Try(provider.putObject(bucket, path, bytes, metadata)) match {
             case Success(()) => HttpResponse(StatusCodes.OK)
             case Failure(e: NoSuchBucketException) =>
-              HttpResponse(
-                StatusCodes.NotFound,
-                entity = e.toXML.toString()
-              )
+              HttpResponse(StatusCodes.NotFound, entity = e.toXML.toString())
             case Failure(t) =>
               HttpResponse(
                 StatusCodes.InternalServerError,
                 entity = InternalErrorException(t).toXML.toString()
               )
           }
-        }).runWith(Sink.head[HttpResponse])
+        })
+        .runWith(Sink.head[HttpResponse])
       result
     }
   }
 
-  def completePlain(bucket:String, path:String) = extractRequest { request =>
+  def completePlain(bucket: String, path: String) = extractRequest { request =>
     complete {
 
       logger.info(s"put object $bucket/$path (unsigned)")
@@ -70,22 +68,21 @@ case class PutObject(implicit provider:Provider, mat:Materializer) extends LazyL
           Try(provider.putObject(bucket, path, bytes, metadata)) match {
             case Success(()) => HttpResponse(StatusCodes.OK)
             case Failure(e: NoSuchBucketException) =>
-              HttpResponse(
-                StatusCodes.NotFound,
-                entity = e.toXML.toString()
-              )
+              HttpResponse(StatusCodes.NotFound, entity = e.toXML.toString())
             case Failure(t) =>
               HttpResponse(
                 StatusCodes.InternalServerError,
                 entity = InternalErrorException(t).toXML.toString()
               )
           }
-        }).runWith(Sink.head[HttpResponse])
+        })
+        .runWith(Sink.head[HttpResponse])
       result
     }
   }
 
-  private def populateObjectMetadata(request: HttpRequest, bytes: Array[Byte]): ObjectMetadata = {
+  private def populateObjectMetadata(request: HttpRequest,
+                                     bytes: Array[Byte]): ObjectMetadata = {
     val metadata = MetadataUtil.populateObjectMetadata(request)
     metadata.setContentMD5(DigestUtils.md5Hex(bytes))
     metadata

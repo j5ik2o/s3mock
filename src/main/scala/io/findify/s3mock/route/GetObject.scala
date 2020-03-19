@@ -12,7 +12,11 @@ import com.amazonaws.services.s3.Headers
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.util.DateUtils
 import com.typesafe.scalalogging.LazyLogging
-import io.findify.s3mock.error.{InternalErrorException, NoSuchBucketException, NoSuchKeyException}
+import io.findify.s3mock.error.{
+  InternalErrorException,
+  NoSuchBucketException,
+  NoSuchKeyException
+}
 import io.findify.s3mock.provider.{GetObjectData, Provider}
 
 import scala.collection.JavaConverters._
@@ -21,7 +25,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by shutty on 8/19/16.
   */
-case class GetObject(implicit provider: Provider) extends LazyLogging {
+case class GetObject()(implicit provider: Provider) extends LazyLogging {
   def route(bucket: String, path: String, params: Map[String, String]) = get {
 
     withRangeSupport {
@@ -32,10 +36,11 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
           case Success(GetObjectData(data, metaOption)) =>
             metaOption match {
               case Some(meta) =>
-                val entity: Strict = ContentType.parse(meta.getContentType) match {
-                  case Right(value) => HttpEntity(value, data)
-                  case Left(error) => HttpEntity(data)
-                }
+                val entity: Strict =
+                  ContentType.parse(meta.getContentType) match {
+                    case Right(value) => HttpEntity(value, data)
+                    case Left(error)  => HttpEntity(data)
+                  }
 
                 if (params.contains("tagging")) {
                   handleTaggingRequest(meta)
@@ -43,7 +48,9 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
                   HttpResponse(
                     status = StatusCodes.OK,
                     entity = entity,
-                    headers = `Last-Modified`(DateTime(1970, 1, 1)) :: metadataToHeaderList(meta)
+                    headers = `Last-Modified`(DateTime(1970, 1, 1)) :: metadataToHeaderList(
+                      meta
+                    )
                   )
                 }
 
@@ -55,15 +62,9 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
                 )
             }
           case Failure(e: NoSuchKeyException) =>
-            HttpResponse(
-              StatusCodes.NotFound,
-              entity = e.toXML.toString()
-            )
+            HttpResponse(StatusCodes.NotFound, entity = e.toXML.toString())
           case Failure(e: NoSuchBucketException) =>
-            HttpResponse(
-              StatusCodes.NotFound,
-              entity = e.toXML.toString()
-            )
+            HttpResponse(StatusCodes.NotFound, entity = e.toXML.toString())
           case Failure(t) =>
             logger.error("Oops: ", t)
             HttpResponse(
@@ -75,15 +76,14 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
     }
   }
 
-
-
   protected def handleTaggingRequest(meta: ObjectMetadata): HttpResponse = {
-    var root = <Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></Tagging>
+    var root =
+      <Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></Tagging>
     var tagset = <TagSet></TagSet>
 
     var w = new StringWriter()
 
-    if (meta.getRawMetadata.containsKey("x-amz-tagging")){
+    if (meta.getRawMetadata.containsKey("x-amz-tagging")) {
       var doc =
         <Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
           <TagSet>
@@ -103,10 +103,10 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
           </TagSet>
         </Tagging>
 
-
       xml.XML.write(w, doc, "UTF-8", true, null)
     } else {
-      var doc = <Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet></TagSet></Tagging>
+      var doc =
+        <Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><TagSet></TagSet></Tagging>
       xml.XML.write(w, doc, "UTF-8", true, null)
     }
 
@@ -114,12 +114,16 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
     HttpResponse(
       status = StatusCodes.OK,
       entity = w.toString,
-      headers = `Last-Modified`(DateTime(1970, 1, 1)) :: metadataToHeaderList(meta)
+      headers = `Last-Modified`(DateTime(1970, 1, 1)) :: metadataToHeaderList(
+        meta
+      )
     )
   }
 
   val headerBlacklist = Set("content-type", "connection")
-  protected def metadataToHeaderList(metadata: ObjectMetadata): List[HttpHeader] = {
+  protected def metadataToHeaderList(
+    metadata: ObjectMetadata
+  ): List[HttpHeader] = {
     val headers = Option(metadata.getRawMetadata)
       .map(_.asScala.toMap)
       .map(_.map {
@@ -128,21 +132,27 @@ case class GetObject(implicit provider: Provider) extends LazyLogging {
         case (key, value) =>
           RawHeader(key, value.toString)
       }.toList)
-      .toList.flatten
+      .toList
+      .flatten
       .filterNot(header => headerBlacklist.contains(header.lowercaseName))
 
-    val httpExpires = Option(metadata.getHttpExpiresDate).map(date => RawHeader(Headers.EXPIRES, DateUtils.formatRFC822Date(date)))
+    val httpExpires = Option(metadata.getHttpExpiresDate)
+      .map(date => RawHeader(Headers.EXPIRES, DateUtils.formatRFC822Date(date)))
 
     val userHeaders = Option(metadata.getUserMetadata)
       .map(_.asScala.toMap)
-      .map(_.map { case (key, value) => {
-        val name = Option(key).map(_.trim).getOrElse("")
-        val hvalue = Option(value).map(_.trim).getOrElse("")
-        RawHeader(Headers.S3_USER_METADATA_PREFIX + name, hvalue)
-      }}.toList)
+      .map(_.map {
+        case (key, value) => {
+          val name = Option(key).map(_.trim).getOrElse("")
+          val hvalue = Option(value).map(_.trim).getOrElse("")
+          RawHeader(Headers.S3_USER_METADATA_PREFIX + name, hvalue)
+        }
+      }.toList)
       .toList
       .flatten
 
-    headers ++ httpExpires.toList ++ userHeaders ++ Option(metadata.getContentMD5).map(md5 => RawHeader(Headers.ETAG, md5))
+    headers ++ httpExpires.toList ++ userHeaders ++ Option(
+      metadata.getContentMD5
+    ).map(md5 => RawHeader(Headers.ETAG, md5))
   }
 }

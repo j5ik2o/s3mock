@@ -8,8 +8,8 @@ import com.typesafe.config.ConfigFactory
   Not yet fixed :(
  */
 
-class TypesafeConfigTest  extends S3MockTest {
-  override def behaviour(fixture: => Fixture) = {
+class TypesafeConfigTest extends S3MockTest {
+  override def behaviour(fixture: => Fixture): Unit = {
 
     it should "load typesafe config files" ignore {
       val conf = ConfigFactory.parseResources("/test.conf")

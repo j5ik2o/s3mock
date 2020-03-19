@@ -6,7 +6,8 @@ import scala.collection.JavaConverters._
   * Created by shutty on 8/30/16.
   */
 class ListBucketEmptyWorkdirTest extends S3MockTest {
-  override def behaviour(fixture: => Fixture) = {
+
+  override def behaviour(fixture: => Fixture): Unit = {
     val s3 = fixture.client
     it should "list bucket with empty prefix" in {
       s3.createBucket("list")
@@ -16,4 +17,5 @@ class ListBucketEmptyWorkdirTest extends S3MockTest {
       list.map(_.getKey).forall(_.startsWith("foo")) shouldBe true
     }
   }
+
 }
